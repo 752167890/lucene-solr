@@ -62,7 +62,6 @@ public class IndexManagerUtils {
 
     /** 创建 Lucene 文档列表，用于保存多个 Docuemnt*/
     List<Document> docList = new ArrayList<>();
-
     /**循环目标文件夹，取出文件
      * 然后获取文件的需求内容，添加到 Lucene 文档(Document)中
      * 此例会获取 文件名称、文件内容、文件大小
@@ -175,8 +174,8 @@ public class IndexManagerUtils {
   }
 
   public static void main(String[] args) throws IOException {
-    File file1 = new File("../data/wikipedia");
-    File file2 = new File("../output_index");
+    File file1 = new File("D:/lucene_index/data/wikipedia");
+    File file2 = new File("D:/lucene_index/output_index");
     indexCreate(file1, file2);
 
   }
