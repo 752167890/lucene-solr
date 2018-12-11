@@ -28,7 +28,7 @@ import static org.apache.lucene.codecs.lucene50.Lucene50PostingsFormat.TERMS_COD
 import static org.apache.lucene.codecs.lucene50.Lucene50PostingsFormat.VERSION_CURRENT;
 
 import java.io.IOException;
-
+import java.util.ArrayList;
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.PushPostingsWriterBase;
@@ -68,7 +68,7 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
   private long posStartFP;
   private long payStartFP;
 
-  final int[] docDeltaBuffer;
+  final ArrayList<Integer> docIdBuffer;
   final int[] freqBuffer;
   private int docBufferUpto;
 
@@ -87,7 +87,7 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
   private int lastBlockPosBufferUpto;
   private int lastBlockPayloadByteUpto;
 
-  private int lastDocID;
+  private int baseDocID;
   private int lastPosition;
   private int lastStartOffset;
   private int docCount;
@@ -155,7 +155,7 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
       }
     }
 
-    docDeltaBuffer = new int[MAX_DATA_SIZE];
+    docIdBuffer = new ArrayList<>();
     freqBuffer = new int[MAX_DATA_SIZE];
 
     // TODO: should we try skipping every 2/4 blocks...?
@@ -205,46 +205,37 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
         payStartFP = payOut.getFilePointer();
       }
     }
-    lastDocID = 0;
     lastBlockDocID = -1;
     skipWriter.resetSkip();
   }
 
   @Override
   public void startDoc(int docID, int termDocFreq) throws IOException {
-    // Have collected a block of docs, and get a new doc. 
-    // Should write skip data as well as postings list for
-    // current block.
-    if (lastBlockDocID != -1 && docBufferUpto == 0) {
-      skipWriter.bufferSkip(lastBlockDocID, docCount, lastBlockPosFP, lastBlockPayFP, lastBlockPosBufferUpto, lastBlockPayloadByteUpto);
+    // 所有数据暂时缓存到内存中，直到finishTerm再处理
+//    if (lastBlockDocID != -1 && docBufferUpto == 0) {
+//      skipWriter.bufferSkip(lastBlockDocID, docCount, lastBlockPosFP, lastBlockPayFP, lastBlockPosBufferUpto, lastBlockPayloadByteUpto);
+//    }
+    // 如果数据有误
+    if (docID < 0) {
+      throw new CorruptIndexException("docs out of order (" + docID + " <= " + baseDocID + " )", docOut);
     }
-
-    final int docDelta = docID - lastDocID;
-
-    if (docID < 0 || (docCount > 0 && docDelta <= 0)) {
-      throw new CorruptIndexException("docs out of order (" + docID + " <= " + lastDocID + " )", docOut);
-    }
-
-    docDeltaBuffer[docBufferUpto] = docDelta;
+    docIdBuffer.add(docID);
     if (writeFreqs) {
       freqBuffer[docBufferUpto] = termDocFreq;
     }
-    
     docBufferUpto++;
     docCount++;
+    // 先缓存最后处理
+//    if (docBufferUpto == BLOCK_SIZE) {
+//      // forUtil.writeBlock(docOffsetBuffer, encoded, docOut);
+//      if (writeFreqs) {
+//        forUtil.writeBlock(freqBuffer, encoded, docOut);
+//      }
+//      // NOTE: don't set docBufferUpto back to 0 here;
+//      // finishDoc will do so (because it needs to see that
+//      // the block was filled so it can save skip data)
+//    }
 
-    if (docBufferUpto == BLOCK_SIZE) {
-      forUtil.writeBlock(docDeltaBuffer, encoded, docOut);
-      if (writeFreqs) {
-        forUtil.writeBlock(freqBuffer, encoded, docOut);
-      }
-      // NOTE: don't set docBufferUpto back to 0 here;
-      // finishDoc will do so (because it needs to see that
-      // the block was filled so it can save skip data)
-    }
-
-
-    lastDocID = docID;
     lastPosition = 0;
     lastStartOffset = 0;
   }
@@ -305,7 +296,6 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     // those skip data for each block, and when a new doc comes, 
     // write them to skip file.
     if (docBufferUpto == BLOCK_SIZE) {
-      lastBlockDocID = lastDocID;
       if (posOut != null) {
         if (payOut != null) {
           lastBlockPayFP = payOut.getFilePointer();
@@ -316,6 +306,94 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
       }
       docBufferUpto = 0;
     }
+  }
+  private int getVIntCost(int val) {
+    if (val < 0) {
+      return 0;
+    }
+    int cost = 1;
+    while ((val & ~0x7F) != 0) {
+      val >>>= 7;
+      cost += 1;
+    }
+    return cost;
+  }
+
+  private int getBitSetCost(int universe) {
+    // 得到使用的byte数
+    if (universe < 0) {
+      return 0;
+    }
+    return ((universe - 1) >> 3) + 1;
+  }
+
+  public ArrayList<Integer> optimalPartition() throws IOException {
+    ArrayList<Integer> partition = new ArrayList<>();
+    int min = 0, max = 0, i = 0, j = 0, g = 0;
+    int baseDocId = docIdBuffer.get(0);
+    int extra = 2 * getVIntCost(baseDocId);
+    int T = extra;
+    for (int index = 1; index < docIdBuffer.size(); index++) {
+      int flag = getVIntCost(docIdBuffer.get(index) - baseDocId - 1) - (getBitSetCost(docIdBuffer.get(index) - baseDocId - 1) - getBitSetCost(docIdBuffer.get(index - 1) - baseDocId - 1));
+      g += flag;
+      if (flag >= 0) {
+        if (g > max) {
+          max = g;
+          i = index + 1;
+        }
+        if (min < -T && min - g < -2 * extra) {
+          partition.add(j);
+          i = index + 1;
+          g = g - min;
+          min = 0;
+          max = g;
+          // 处理跳表及baseDocId的问题
+          if (index + 1 < docIdBuffer.size()) {
+            baseDocId = docIdBuffer.get(index + 1);
+            // 跳过下一个为baseDocId的数
+            index += 1;
+            extra = 2 * getVIntCost(baseDocId);
+            T = 2 * extra;
+          }
+        }
+      } else {
+        if (g < min) {
+          min = g;
+          j = index + 1;
+        }
+        if (max < -T && max - g < -2 * extra) {
+          partition.add(i);
+          j = index + 1;
+          g = g - max;
+          max = 0;
+          min = g;
+          // 处理跳表及baseDocId的问题
+          if (index + 1 < docIdBuffer.size()) {
+            baseDocId = docIdBuffer.get(index + 1);
+            // 跳过下一个为baseDocId的数
+            index += 1;
+            extra = 2 * getVIntCost(baseDocId);
+            T = 2 * extra;
+          }
+        }
+      }
+    }
+    if (max > extra && max - g > extra) {
+      partition.add(i);
+      g = g - max;
+    }
+    if (min < -extra && min - g < -extra) {
+      partition.add(j);
+      g = g - min;
+    }
+    if (g > 0) {
+      i = docIdBuffer.size();
+      partition.add(i);
+    } else {
+      j = docIdBuffer.size();
+      partition.add(j);
+    }
+    return partition;
   }
 
   /** Called when we are done adding docs to this term */
@@ -332,22 +410,11 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     final int singletonDocID;
     if (state.docFreq == 1) {
       // pulse the singleton docid into the term dictionary, freq is implicitly totalTermFreq
-      singletonDocID = docDeltaBuffer[0];
+      singletonDocID = docIdBuffer.get(0);
     } else {
       singletonDocID = -1;
-      // vInt encode the remaining doc deltas and freqs:
-      for(int i=0;i<docBufferUpto;i++) {
-        final int docDelta = docDeltaBuffer[i];
-        final int freq = freqBuffer[i];
-        if (!writeFreqs) {
-          docOut.writeVInt(docDelta);
-        } else if (freqBuffer[i] == 1) {
-          docOut.writeVInt((docDelta<<1)|1);
-        } else {
-          docOut.writeVInt(docDelta<<1);
-          docOut.writeVInt(freq);
-        }
-      }
+      // 遍历所有的docId，得到最优的分块
+      ArrayList<Integer> partition = optimalPartition();
     }
 
     final long lastPosBlockOffset;
@@ -429,7 +496,7 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     state.lastPosBlockOffset = lastPosBlockOffset;
     docBufferUpto = 0;
     posBufferUpto = 0;
-    lastDocID = 0;
+    baseDocID = 0;
     docCount = 0;
   }
   

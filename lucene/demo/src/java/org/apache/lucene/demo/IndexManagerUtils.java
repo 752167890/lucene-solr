@@ -175,8 +175,8 @@ public class IndexManagerUtils {
   }
 
   public static void main(String[] args) throws IOException {
-    File file1 = new File("../data/wikipedia");
-    File file2 = new File("../output_index");
+    File file1 = new File("D:/lucene_index/data/wikipedia");
+    File file2 = new File("D:/lucene_index/output_index");
     indexCreate(file1, file2);
 
   }
