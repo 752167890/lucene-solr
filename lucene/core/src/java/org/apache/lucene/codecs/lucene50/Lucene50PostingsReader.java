@@ -386,7 +386,9 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
       docUpto++;
 
       doc = accum;
-      freq = freqBuffer[docBufferUpto];
+      if (indexHasFreq) {
+        freq = freqBuffer[docBufferUpto];
+      }
       docBufferUpto++;
       return doc;
     }
@@ -456,7 +458,9 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
         }
       }
 
-      freq = freqBuffer[docBufferUpto];
+      if (indexHasFreq) {
+        freq = freqBuffer[docBufferUpto];
+      }
       docBufferUpto++;
       return doc = accum;
     }

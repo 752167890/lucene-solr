@@ -44,7 +44,7 @@ import org.apache.lucene.util.Accountable;
 // TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
 public abstract class PostingsReaderBase implements Closeable, Accountable {
 
-  /** Sole constructor. (For invocation by subclass 
+  /** Sole constructor. (For invocation by subclass
    *  constructors, typically implicit.) */
   protected PostingsReaderBase() {
   }

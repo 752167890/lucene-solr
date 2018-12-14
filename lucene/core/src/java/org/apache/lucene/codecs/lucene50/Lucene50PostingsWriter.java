@@ -29,6 +29,8 @@ import static org.apache.lucene.codecs.lucene50.Lucene50PostingsFormat.VERSION_C
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.PushPostingsWriterBase;
@@ -42,6 +44,7 @@ import org.apache.lucene.store.DataOutput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.packed.PackedInts;
 
@@ -96,7 +99,26 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
 
   private final ForUtil forUtil;
   private final Lucene50SkipWriter skipWriter;
-  
+
+  enum EncodeMethod {
+    BitSet, VByte
+  }
+  public class Partition {
+    public int  Start;
+    public int  End;
+    Partition(int start, int end) {
+      Start = start;
+      End = end;
+    }
+  }
+  public class PartitionItem {
+    public Partition  Partition;
+    public EncodeMethod Method;
+    PartitionItem(int start, int end, EncodeMethod method) {
+      Partition = new Partition(start, end);
+      Method = method;
+    }
+  }
   /** Creates a postings writer */
   public Lucene50PostingsWriter(SegmentWriteState state) throws IOException {
     final float acceptableOverheadRatio = PackedInts.COMPACT;
@@ -211,7 +233,7 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
 
   @Override
   public void startDoc(int docID, int termDocFreq) throws IOException {
-    // 所有数据暂时缓存到内存中，直到finishTerm再处理
+//    // 所有数据暂时缓存到内存中，直到finishTerm再处理
 //    if (lastBlockDocID != -1 && docBufferUpto == 0) {
 //      skipWriter.bufferSkip(lastBlockDocID, docCount, lastBlockPosFP, lastBlockPayFP, lastBlockPosBufferUpto, lastBlockPayloadByteUpto);
 //    }
@@ -295,17 +317,17 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     // Since we don't know df for current term, we had to buffer
     // those skip data for each block, and when a new doc comes, 
     // write them to skip file.
-    if (docBufferUpto == BLOCK_SIZE) {
-      if (posOut != null) {
-        if (payOut != null) {
-          lastBlockPayFP = payOut.getFilePointer();
-        }
-        lastBlockPosFP = posOut.getFilePointer();
-        lastBlockPosBufferUpto = posBufferUpto;
-        lastBlockPayloadByteUpto = payloadByteUpto;
-      }
-      docBufferUpto = 0;
-    }
+//    if (docBufferUpto == BLOCK_SIZE) {
+//      if (posOut != null) {
+//        if (payOut != null) {
+//          lastBlockPayFP = payOut.getFilePointer();
+//        }
+//        lastBlockPosFP = posOut.getFilePointer();
+//        lastBlockPosBufferUpto = posBufferUpto;
+//        lastBlockPayloadByteUpto = payloadByteUpto;
+//      }
+//      docBufferUpto = 0;
+//    }
   }
   private int getVIntCost(int val) {
     if (val < 0) {
@@ -327,14 +349,20 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     return ((universe - 1) >> 3) + 1;
   }
 
-  public ArrayList<Integer> optimalPartition() throws IOException {
-    ArrayList<Integer> partition = new ArrayList<>();
+
+  public ArrayList<PartitionItem> optimalPartition() throws IOException {
+    ArrayList<PartitionItem> partition = new ArrayList<>();
     int min = 0, max = 0, i = 0, j = 0, g = 0;
     int baseDocId = docIdBuffer.get(0);
     int extra = 2 * getVIntCost(baseDocId);
     int T = extra;
+    int lastPos = 0;
     for (int index = 1; index < docIdBuffer.size(); index++) {
-      int flag = getVIntCost(docIdBuffer.get(index) - baseDocId - 1) - (getBitSetCost(docIdBuffer.get(index) - baseDocId - 1) - getBitSetCost(docIdBuffer.get(index - 1) - baseDocId - 1));
+      int E = getVIntCost(docIdBuffer.get(index) - baseDocId - 1);
+      int x = getBitSetCost(docIdBuffer.get(index) - baseDocId - 1);
+      int y = getBitSetCost(docIdBuffer.get(index - 1) - baseDocId - 1);
+      int B = x-y;
+      int flag = E - B;
       g += flag;
       if (flag >= 0) {
         if (g > max) {
@@ -342,19 +370,18 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
           i = index + 1;
         }
         if (min < -T && min - g < -2 * extra) {
-          partition.add(j);
-          i = index + 1;
+          partition.add(new PartitionItem(lastPos, j, EncodeMethod.VByte));
+          i = j + 1;
           g = g - min;
           min = 0;
-          max = g;
+          max = 0;
+          lastPos = j;
           // 处理跳表及baseDocId的问题
-          if (index + 1 < docIdBuffer.size()) {
-            baseDocId = docIdBuffer.get(index + 1);
-            // 跳过下一个为baseDocId的数
-            index += 1;
-            extra = 2 * getVIntCost(baseDocId);
-            T = 2 * extra;
-          }
+          baseDocId = docIdBuffer.get(j);
+          // 开始回溯
+          index = j+1;
+          extra = 2 * getVIntCost(baseDocId);
+          T = 2 * extra;
         }
       } else {
         if (g < min) {
@@ -362,38 +389,58 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
           j = index + 1;
         }
         if (max < -T && max - g < -2 * extra) {
-          partition.add(i);
-          j = index + 1;
+          partition.add(new PartitionItem(lastPos, i, EncodeMethod.BitSet));
+          j = i + 1;
           g = g - max;
           max = 0;
-          min = g;
+          min = 0;
           // 处理跳表及baseDocId的问题
-          if (index + 1 < docIdBuffer.size()) {
-            baseDocId = docIdBuffer.get(index + 1);
-            // 跳过下一个为baseDocId的数
-            index += 1;
-            extra = 2 * getVIntCost(baseDocId);
-            T = 2 * extra;
-          }
+          lastPos = i;
+          baseDocId = docIdBuffer.get(i);
+          // 开始回溯
+          index = i+1;
+          extra = 2 * getVIntCost(baseDocId);
+          T = 2 * extra;
         }
       }
     }
-    if (max > extra && max - g > extra) {
-      partition.add(i);
-      g = g - max;
-    }
-    if (min < -extra && min - g < -extra) {
-      partition.add(j);
-      g = g - min;
-    }
+//    if (max > extra && max - g > extra) {
+//      partition.add(i);
+//      g = g - max;
+//    }
+//    if (min < -extra && min - g < -extra) {
+//      partition.add(j);
+//      g = g - min;
+//    }
     if (g > 0) {
-      i = docIdBuffer.size();
-      partition.add(i);
+      partition.add(new PartitionItem(lastPos, docIdBuffer.size(), EncodeMethod.BitSet));
     } else {
-      j = docIdBuffer.size();
-      partition.add(j);
+      partition.add(new PartitionItem(lastPos, docIdBuffer.size(), EncodeMethod.VByte));
     }
     return partition;
+  }
+
+  private byte[] longsToBytes(long[] x) {
+    List<Byte> baos = new ArrayList<>();
+    for(long data:x){
+      byte[] buffer = new byte[8];
+      for (int i = 0; i < 8; i++) {
+        int offset = 64 - (i + 1) * 8;
+        buffer[i] = (byte) ((data >> offset) & 0xff);
+      }
+      for(int j=7; j>=0; j--) {
+        if (buffer[j]!=0) {
+          baos.add(buffer[j]);
+        }
+      }
+    }
+    Byte[] temp=new Byte[baos.toArray().length];
+    baos.toArray(temp);
+    byte[] res=new byte[temp.length];
+    for(int i=0;i<temp.length;i++) {
+      res[i]=temp[i];
+    }
+    return res;
   }
 
   /** Called when we are done adding docs to this term */
@@ -414,7 +461,31 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     } else {
       singletonDocID = -1;
       // 遍历所有的docId，得到最优的分块
-      ArrayList<Integer> partition = optimalPartition();
+      ArrayList<PartitionItem> partition = optimalPartition();
+      for(PartitionItem item:partition){
+        switch (item.Method) {
+          case VByte:{
+            // 写入一个0作为该分区为VByte的标志
+            docOut.writeVInt(0);
+            int base = docIdBuffer.get(item.Partition.Start);
+            skipWriter.bufferSkip(base, item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
+            for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
+              docOut.writeVInt(docIdBuffer.get(i)-base);
+            }
+            break;
+          }
+          case BitSet:{
+            int base = docIdBuffer.get(item.Partition.Start);
+            skipWriter.bufferSkip(base, item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
+            FixedBitSet bitSet = new FixedBitSet(docIdBuffer.get(item.Partition.End-1)-base);
+            for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
+              bitSet.set(docIdBuffer.get(i)-base-1);
+            }
+            docOut.writeBytes(longsToBytes(bitSet.getBits()), longsToBytes(bitSet.getBits()).length);
+            break;
+          }
+        }
+      }
     }
 
     final long lastPosBlockOffset;
@@ -482,7 +553,7 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     }
 
     long skipOffset;
-    if (docCount > BLOCK_SIZE) {
+    if (docCount > 1) {
       skipOffset = skipWriter.writeSkip(docOut) - docStartFP;
     } else {
       skipOffset = -1;
@@ -494,10 +565,10 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     state.singletonDocID = singletonDocID;
     state.skipOffset = skipOffset;
     state.lastPosBlockOffset = lastPosBlockOffset;
-    docBufferUpto = 0;
     posBufferUpto = 0;
     baseDocID = 0;
     docCount = 0;
+    docIdBuffer.clear();
   }
   
   @Override
@@ -552,3 +623,4 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     }
   }
 }
+

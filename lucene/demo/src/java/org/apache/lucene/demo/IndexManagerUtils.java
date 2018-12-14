@@ -94,12 +94,12 @@ public class IndexManagerUtils {
              *  Lucene Docuemnt 相当于 Mysql 数据库表的一行记录
              *  Docuemnt 中 Field 相当于 Mysql 数据库表的字段*/
             luceneDocument = new Document();
-            TextField titleFiled = new TextField("title", title, Store.YES);
+            TextField titleFiled = new TextField("title", title, Store.NO);
             luceneDocument.add(titleFiled);
             continue;
           }
           if (a.equals("</doc>")) {
-            TextField contentFiled = new TextField("content", content, Store.YES);
+            TextField contentFiled = new TextField("content", content, Store.NO);
             luceneDocument.add(contentFiled);
             /**将文档存入文档集合中，之后再同统一进行存储*/
             docList.add(luceneDocument);

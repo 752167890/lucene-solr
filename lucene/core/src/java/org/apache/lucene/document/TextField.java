@@ -33,11 +33,18 @@ public final class TextField extends Field {
 
   /** Indexed, tokenized, stored. */
   public static final FieldType TYPE_STORED = new FieldType();
+  /** For Test Only */
+  public static final FieldType TYPE_TEST = new FieldType();
+
 
   static {
     TYPE_NOT_STORED.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
     TYPE_NOT_STORED.setTokenized(true);
     TYPE_NOT_STORED.freeze();
+
+    TYPE_TEST.setIndexOptions(IndexOptions.DOCS);
+    TYPE_TEST.setTokenized(true);
+    TYPE_TEST.freeze();
 
     TYPE_STORED.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
     TYPE_STORED.setTokenized(true);
@@ -64,7 +71,7 @@ public final class TextField extends Field {
    * @throws IllegalArgumentException if the field name or value is null.
    */
   public TextField(String name, String value, Store store) {
-    super(name, value, store == Store.YES ? TYPE_STORED : TYPE_NOT_STORED);
+    super(name, value, store == Store.YES ? TYPE_STORED : TYPE_TEST);
   }
   
   /** Creates a new un-stored TextField with TokenStream value. 
