@@ -354,7 +354,7 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     ArrayList<PartitionItem> partition = new ArrayList<>();
     int min = 0, max = 0, i = 0, j = 0, g = 0;
     int baseDocId = docIdBuffer.get(0);
-    int extra = 2 * getVIntCost(baseDocId);
+    int extra = 3 * getVIntCost(baseDocId);
     int T = extra;
     int lastPos = 0;
     for (int index = 1; index < docIdBuffer.size(); index++) {
@@ -465,18 +465,26 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
       for(PartitionItem item:partition){
         switch (item.Method) {
           case VByte:{
-            // 写入一个0作为该分区为VByte的标志
+            // 写入编码类型
             docOut.writeVInt(0);
+            // 写入块的长度
+            docOut.writeVInt(item.Partition.End-item.Partition.Start);
             int base = docIdBuffer.get(item.Partition.Start);
-            skipWriter.bufferSkip(base, item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
+            // 写入base
+            docOut.writeVInt(base);
+            skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
             for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
               docOut.writeVInt(docIdBuffer.get(i)-base);
             }
             break;
           }
           case BitSet:{
+            docOut.writeVInt(1);
             int base = docIdBuffer.get(item.Partition.Start);
-            skipWriter.bufferSkip(base, item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
+            // 存入需要的numBits;
+            docOut.writeVInt(docIdBuffer.get(item.Partition.End-1)-base);
+            docOut.writeVInt(base);
+            skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
             FixedBitSet bitSet = new FixedBitSet(docIdBuffer.get(item.Partition.End-1)-base);
             for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
               bitSet.set(docIdBuffer.get(i)-base-1);
