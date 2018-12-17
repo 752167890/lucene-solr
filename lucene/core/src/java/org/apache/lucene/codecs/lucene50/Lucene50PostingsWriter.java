@@ -428,17 +428,20 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
         int offset = 64 - (i + 1) * 8;
         buffer[i] = (byte) ((data >> offset) & 0xff);
       }
-      for(int j=7; j>=0; j--) {
-        if (buffer[j]!=0) {
-          baos.add(buffer[j]);
+      int j = 0;
+      while(buffer[j]==0){
+        j++;
+        if(j==8) {
+          break;
         }
       }
+      for(; j<8; j++) {
+        baos.add(buffer[j]);
+      }
     }
-    Byte[] temp=new Byte[baos.toArray().length];
-    baos.toArray(temp);
-    byte[] res=new byte[temp.length];
-    for(int i=0;i<temp.length;i++) {
-      res[i]=temp[i];
+    byte[] res=new byte[baos.size()];
+    for(int i=0;i<baos.size();i++) {
+      res[i]=baos.get(i);
     }
     return res;
   }
@@ -470,6 +473,9 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
             // 写入块的长度
             docOut.writeVInt(item.Partition.End-item.Partition.Start);
             int base = docIdBuffer.get(item.Partition.Start);
+            if (base == 20864) {
+              int i=0;
+            }
             // 写入base
             docOut.writeVInt(base);
             skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
@@ -481,15 +487,15 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
           case BitSet:{
             docOut.writeVInt(1);
             int base = docIdBuffer.get(item.Partition.Start);
-            // 存入需要的numBits;
-            docOut.writeVInt(docIdBuffer.get(item.Partition.End-1)-base);
-            docOut.writeVInt(base);
             skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
             FixedBitSet bitSet = new FixedBitSet(docIdBuffer.get(item.Partition.End-1)-base);
             for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
               bitSet.set(docIdBuffer.get(i)-base-1);
             }
-            docOut.writeBytes(longsToBytes(bitSet.getBits()), longsToBytes(bitSet.getBits()).length);
+            byte[] bitSetData = longsToBytes(bitSet.getBits());
+            docOut.writeVInt(bitSetData.length);
+            docOut.writeVInt(base);
+            docOut.writeBytes(bitSetData, bitSetData.length);
             break;
           }
         }
