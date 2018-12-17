@@ -375,17 +375,17 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
         // 存入块首元素
         docIdBuffer.add(base);
         if (flag == 0) {
-          for(int i=0; i<length; i++) {
+          for(int i=1; i<length; i++) {
             int val = docIn.readVInt();
             docIdBuffer.add(base+val);
           }
         } else if (flag == 1) {
-          byte[] bitSetData = new byte[((length - 1) >> 3) + 1];
-          docIn.readBytes(bitSetData, 0, ((length-1)>>3)+1);
-          FixedBitSet bitSet = new FixedBitSet(bytesTolong(bitSetData), length);
+          byte[] bitSetData = new byte[length];
+          docIn.readBytes(bitSetData, 0, length);
+          FixedBitSet bitSet = new FixedBitSet(bytesTolong(bitSetData), length<<3);
           for(int i=0;i<length;i++) {
             if(bitSet.get(i)) {
-              docIdBuffer.add(base+i);
+              docIdBuffer.add(base+i+1);
             }
           }
         } else {
@@ -644,7 +644,7 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
       // 存入块首元素
       docIdBuffer.add(base);
       if (flag == 0) {
-        for(int i=0; i<length; i++) {
+        for(int i=1; i<length; i++) {
           int val = docIn.readVInt();
           docIdBuffer.add(base+val);
         }
@@ -654,7 +654,7 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
         FixedBitSet bitSet = new FixedBitSet(bytesTolong(bitSetData), length);
         for(int i=0;i<length;i++) {
           if(bitSet.get(i)) {
-            docIdBuffer.add(base+i);
+            docIdBuffer.add(base+i+1);
           }
         }
       } else {
@@ -1046,7 +1046,7 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
       // 存入块首元素
       docIdBuffer.add(base);
       if (flag == 0) {
-        for(int i=0; i<length; i++) {
+        for(int i=1; i<length; i++) {
           int val = docIn.readVInt();
           docIdBuffer.add(base+val);
         }
@@ -1056,7 +1056,7 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
         FixedBitSet bitSet = new FixedBitSet(bytesTolong(bitSetData), length);
         for(int i=0;i<length;i++) {
           if(bitSet.get(i)) {
-            docIdBuffer.add(base+i);
+            docIdBuffer.add(base+i+1);
           }
         }
       } else {
