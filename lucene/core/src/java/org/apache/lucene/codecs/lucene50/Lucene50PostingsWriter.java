@@ -422,21 +422,29 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
 
   private byte[] longsToBytes(long[] x) {
     List<Byte> baos = new ArrayList<>();
-    for(long data:x){
+    for(int k=0; k<x.length; k++){
+      long data = x[k];
       byte[] buffer = new byte[8];
       for (int i = 0; i < 8; i++) {
         int offset = 64 - (i + 1) * 8;
         buffer[i] = (byte) ((data >> offset) & 0xff);
       }
-      int j = 0;
-      while(buffer[j]==0){
-        j++;
-        if(j==8) {
-          break;
+      // 对于最后一个long特殊处理，去掉高位无用的0
+      if (k==x.length-1) {
+        int j=0;
+        while(buffer[j]==0) {
+          j++;
+          if (j==8) {
+            break;
+          }
         }
-      }
-      for(; j<8; j++) {
-        baos.add(buffer[j]);
+        for (int l=7;l>=j;l--) {
+          baos.add(buffer[l]);
+        }
+      } else {
+        for(int j=7; j>=0; j--) {
+          baos.add(buffer[j]);
+        }
       }
     }
     byte[] res=new byte[baos.size()];
@@ -465,17 +473,18 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
       singletonDocID = -1;
       // 遍历所有的docId，得到最优的分块
       ArrayList<PartitionItem> partition = optimalPartition();
+
       for(PartitionItem item:partition){
         switch (item.Method) {
           case VByte:{
             // 写入编码类型
-            docOut.writeVInt(0);
+            docOut.writeByte((byte)0xff);
             // 写入块的长度
             docOut.writeVInt(item.Partition.End-item.Partition.Start);
             int base = docIdBuffer.get(item.Partition.Start);
-            if (base == 20864) {
-              int i=0;
-            }
+//            if (base == 20864) {
+//              int i=0;
+//            }
             // 写入base
             docOut.writeVInt(base);
             skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
@@ -485,17 +494,17 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
             break;
           }
           case BitSet:{
-            docOut.writeVInt(1);
-            int base = docIdBuffer.get(item.Partition.Start);
-            skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
-            FixedBitSet bitSet = new FixedBitSet(docIdBuffer.get(item.Partition.End-1)-base);
-            for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
-              bitSet.set(docIdBuffer.get(i)-base-1);
-            }
-            byte[] bitSetData = longsToBytes(bitSet.getBits());
-            docOut.writeVInt(bitSetData.length);
-            docOut.writeVInt(base);
-            docOut.writeBytes(bitSetData, bitSetData.length);
+//            docOut.writeVInt(1);
+//            int base = docIdBuffer.get(item.Partition.Start);
+//            skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
+//            FixedBitSet bitSet = new FixedBitSet(docIdBuffer.get(item.Partition.End-1)-base);
+//            for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
+//              bitSet.set(docIdBuffer.get(i)-base-1);
+//            }
+//            byte[] bitSetData = longsToBytes(bitSet.getBits());
+//            docOut.writeVInt(bitSetData.length);
+//            docOut.writeVInt(base);
+//            docOut.writeBytes(bitSetData, bitSetData.length);
             break;
           }
         }

@@ -186,8 +186,8 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
         termState.lastPosBlockOffset = -1;
       }
     }
-    if (termState.docFreq > BLOCK_SIZE) {
-      termState.skipOffset = in.readVLong();
+    if (termState.docFreq > 1) {
+       termState.skipOffset = in.readVLong();
     } else {
       termState.skipOffset = -1;
     }
@@ -367,30 +367,31 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
       return ret;
     }
     private void refillDocs() throws IOException {
-        int flag = docIn.readVInt();
-        int length = docIn.readVInt();
-        int base = docIn.readVInt();
-        // 清理上次的缓存
-        docIdBuffer.clear();
-        // 存入块首元素
-        docIdBuffer.add(base);
-        if (flag == 0) {
-          for(int i=1; i<length; i++) {
-            int val = docIn.readVInt();
-            docIdBuffer.add(base+val);
-          }
-        } else if (flag == 1) {
-          byte[] bitSetData = new byte[length];
-          docIn.readBytes(bitSetData, 0, length);
-          FixedBitSet bitSet = new FixedBitSet(bytesTolong(bitSetData), length<<3);
-          for(int i=0;i<length;i++) {
-            if(bitSet.get(i)) {
-              docIdBuffer.add(base+i+1);
-            }
-          }
-        } else {
-          throw new CorruptIndexException("unknown data encode method!", docIn);
+      long offset = docIn.getFilePointer();
+      byte flag = docIn.readByte();
+      int length = docIn.readVInt();
+      int base = docIn.readVInt();
+      // 清理上次的缓存
+      docIdBuffer.clear();
+      // 存入块首元素
+      docIdBuffer.add(base);
+      if (flag == (byte)0xff) {
+        for(int i=1; i<length; i++) {
+          int val = docIn.readVInt();
+          docIdBuffer.add(base+val);
         }
+      } else if (flag == 1) {
+        byte[] bitSetData = new byte[length];
+        docIn.readBytes(bitSetData, 0, length);
+        FixedBitSet bitSet = new FixedBitSet(bytesTolong(bitSetData), length<<3);
+        for(int i=0;i<length;i++) {
+          if(bitSet.get(i)) {
+            docIdBuffer.add(base+i+1);
+          }
+        }
+      } else {
+        throw new CorruptIndexException("unknown data encode method!", docIn);
+      }
       docBufferUpto = 0;
     }
 
