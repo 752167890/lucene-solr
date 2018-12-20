@@ -367,15 +367,14 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
       return ret;
     }
     private void refillDocs() throws IOException {
-      long offset = docIn.getFilePointer();
-      byte flag = docIn.readByte();
+      int flag = docIn.readVInt();
       int length = docIn.readVInt();
       int base = docIn.readVInt();
       // 清理上次的缓存
       docIdBuffer.clear();
       // 存入块首元素
       docIdBuffer.add(base);
-      if (flag == (byte)0xff) {
+      if (flag == 0) {
         for(int i=1; i<length; i++) {
           int val = docIn.readVInt();
           docIdBuffer.add(base+val);
@@ -400,10 +399,12 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
       if (docUpto == docFreq) {
         return doc = NO_MORE_DOCS;
       }
+      if (docFreq == 1) {
+        return singletonDocID;
+      }
       if (docBufferUpto == docIdBuffer.size()) {
         refillDocs();
       }
-
       // accum += docDeltaBuffer[docBufferUpto];
       docUpto++;
 

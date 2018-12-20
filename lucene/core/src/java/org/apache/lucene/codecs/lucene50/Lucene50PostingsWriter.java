@@ -478,13 +478,10 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
         switch (item.Method) {
           case VByte:{
             // 写入编码类型
-            docOut.writeByte((byte)0xff);
+            docOut.writeVInt(0);
             // 写入块的长度
             docOut.writeVInt(item.Partition.End-item.Partition.Start);
             int base = docIdBuffer.get(item.Partition.Start);
-//            if (base == 20864) {
-//              int i=0;
-//            }
             // 写入base
             docOut.writeVInt(base);
             skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
@@ -494,17 +491,17 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
             break;
           }
           case BitSet:{
-//            docOut.writeVInt(1);
-//            int base = docIdBuffer.get(item.Partition.Start);
-//            skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
-//            FixedBitSet bitSet = new FixedBitSet(docIdBuffer.get(item.Partition.End-1)-base);
-//            for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
-//              bitSet.set(docIdBuffer.get(i)-base-1);
-//            }
-//            byte[] bitSetData = longsToBytes(bitSet.getBits());
-//            docOut.writeVInt(bitSetData.length);
-//            docOut.writeVInt(base);
-//            docOut.writeBytes(bitSetData, bitSetData.length);
+            docOut.writeVInt(1);
+            int base = docIdBuffer.get(item.Partition.Start);
+            skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
+            FixedBitSet bitSet = new FixedBitSet(docIdBuffer.get(item.Partition.End-1)-base);
+            for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
+              bitSet.set(docIdBuffer.get(i)-base-1);
+            }
+            byte[] bitSetData = longsToBytes(bitSet.getBits());
+            docOut.writeVInt(bitSetData.length);
+            docOut.writeVInt(base);
+            docOut.writeBytes(bitSetData, bitSetData.length);
             break;
           }
         }
