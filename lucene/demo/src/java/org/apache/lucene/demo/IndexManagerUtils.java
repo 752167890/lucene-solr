@@ -16,7 +16,6 @@
  */
 
 package org.apache.lucene.demo;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -178,7 +177,6 @@ public class IndexManagerUtils {
     File file1 = new File("D:/lucene_index/data/wikipedia");
     File file2 = new File("D:/lucene_index/output_index");
     indexCreate(file1, file2);
-
   }
 }
 

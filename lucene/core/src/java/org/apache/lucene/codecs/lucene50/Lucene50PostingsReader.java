@@ -358,11 +358,12 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
       for(int i=0;i<data.length;i++) {
         if (i%8==0) {
           ret[++j]=0;
-          offset=56;
+          offset=0;
         }
-        long val = data[i] >> offset;
+        long val = (long)(data[i]&0x0FF);
+        val <<=offset;
         ret[j] |= val;
-        offset -= 8;
+        offset += 8;
       }
       return ret;
     }
@@ -383,7 +384,7 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
         byte[] bitSetData = new byte[length];
         docIn.readBytes(bitSetData, 0, length);
         FixedBitSet bitSet = new FixedBitSet(bytesTolong(bitSetData), length<<3);
-        for(int i=0;i<length;i++) {
+        for(int i=0;i<(length<<3);i++) {
           if(bitSet.get(i)) {
             docIdBuffer.add(base+i+1);
           }
@@ -628,11 +629,12 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
       for(int i=0;i<data.length;i++) {
         if (i%8==0) {
           ret[++j]=0;
-          offset=56;
+          offset=0;
         }
-        long val = data[i] >> offset;
+        long val = (long)(data[i]&0x0FF);
+        val <<=offset;
         ret[j] |= val;
-        offset -= 8;
+        offset += 8;
       }
       return ret;
     }
@@ -1030,11 +1032,12 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
       for(int i=0;i<data.length;i++) {
         if (i%8==0) {
           ret[++j]=0;
-          offset=56;
+          offset=0;
         }
-        long val = data[i] >> offset;
+        long val = (long)(data[i]&0x0FF);
+        val <<=offset;
         ret[j] |= val;
-        offset -= 8;
+        offset += 8;
       }
       return ret;
     }
