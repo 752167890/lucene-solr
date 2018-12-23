@@ -24,7 +24,7 @@
   </description>
 
   <property name="demo.name" value="lucene-demos-${version}"/>
-
+  <property name="main-class" value="org.apache.lucene.demo.IndexManagerUtils"/>
   <import file="../module-build.xml"/>
 
   <target name="init" depends="module-build.init,jar-lucene-core"/>

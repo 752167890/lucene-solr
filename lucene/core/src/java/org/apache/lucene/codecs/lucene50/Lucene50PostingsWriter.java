@@ -178,7 +178,8 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
     }
 
     docIdBuffer = new ArrayList<>();
-    freqBuffer = new int[MAX_DATA_SIZE];
+//    freqBuffer = new int[MAX_DATA_SIZE];
+    freqBuffer = null;
 
     // TODO: should we try skipping every 2/4 blocks...?
     skipWriter = new Lucene50SkipWriter(MAX_SKIP_LEVELS,
@@ -188,7 +189,8 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
                                         posOut,
                                         payOut);
 
-    encoded = new byte[MAX_ENCODED_SIZE];
+//    encoded = new byte[MAX_ENCODED_SIZE];
+    encoded = null;
   }
 
   @Override
@@ -473,7 +475,6 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
       singletonDocID = -1;
       // 遍历所有的docId，得到最优的分块
       ArrayList<PartitionItem> partition = optimalPartition();
-
       for(PartitionItem item:partition){
         switch (item.Method) {
           case VByte:{

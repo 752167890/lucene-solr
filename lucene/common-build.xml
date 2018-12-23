@@ -728,7 +728,9 @@
       <condition property="checkoutid" value="${-checkoutid}" else="unknown">
         <matches pattern="^[0-9a-z]+$" string="${-checkoutid}" casesensitive="false" multiline="true"/>
       </condition>
-
+      <condition property="scondition" value="${main-class}" else="">
+        <isset property="main-class" />  
+      </condition>  
       <!-- create manifest: -->
       <manifest file="@{manifest.file}">
         <!--
@@ -750,7 +752,8 @@
 
              NOTE: we don't use section info because all of our manifest data
              applies to the entire jar/war ... no package specific info.
-        -->
+        --> 
+        <attribute name="Main-Class" value="${scondition}"/>
         <attribute name="Extension-Name" value="@{implementation.title}"/>
         <attribute name="Specification-Title" value="@{title}"/>
         <!-- spec version must match "digit+{.digit+}*" -->
