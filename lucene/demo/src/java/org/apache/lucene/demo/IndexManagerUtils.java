@@ -16,7 +16,6 @@
  */
 
 package org.apache.lucene.demo;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -62,6 +61,7 @@ public class IndexManagerUtils {
 
     /** 创建 Lucene 文档列表，用于保存多个 Docuemnt*/
     List<Document> docList = new ArrayList<>();
+
     /**循环目标文件夹，取出文件
      * 然后获取文件的需求内容，添加到 Lucene 文档(Document)中
      * 此例会获取 文件名称、文件内容、文件大小
@@ -93,12 +93,12 @@ public class IndexManagerUtils {
              *  Lucene Docuemnt 相当于 Mysql 数据库表的一行记录
              *  Docuemnt 中 Field 相当于 Mysql 数据库表的字段*/
             luceneDocument = new Document();
-            TextField titleFiled = new TextField("title", title, Store.YES);
+            TextField titleFiled = new TextField("title", title, Store.NO);
             luceneDocument.add(titleFiled);
             continue;
           }
           if (a.equals("</doc>")) {
-            TextField contentFiled = new TextField("content", content, Store.YES);
+            TextField contentFiled = new TextField("content", content, Store.NO);
             luceneDocument.add(contentFiled);
             /**将文档存入文档集合中，之后再同统一进行存储*/
             docList.add(luceneDocument);
@@ -177,7 +177,6 @@ public class IndexManagerUtils {
     File file1 = new File("D:/lucene_index/data/wikipedia");
     File file2 = new File("D:/lucene_index/output_index");
     indexCreate(file1, file2);
-
   }
 }
 
