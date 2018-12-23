@@ -33,11 +33,18 @@ public final class TextField extends Field {
 
   /** Indexed, tokenized, stored. */
   public static final FieldType TYPE_STORED = new FieldType();
+  /** For Test Only */
+  public static final FieldType TYPE_TEST = new FieldType();
+
 
   static {
     TYPE_NOT_STORED.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
     TYPE_NOT_STORED.setTokenized(true);
     TYPE_NOT_STORED.freeze();
+
+    TYPE_TEST.setIndexOptions(IndexOptions.DOCS);
+    TYPE_TEST.setTokenized(true);
+    TYPE_TEST.freeze();
 
     TYPE_STORED.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
     TYPE_STORED.setTokenized(true);
@@ -47,7 +54,7 @@ public final class TextField extends Field {
 
   // TODO: add sugar for term vectors...?
 
-  /** Creates a new un-stored TextField with Reader value. 
+  /** Creates a new un-stored TextField with Reader value.
    * @param name field name
    * @param reader reader value
    * @throws IllegalArgumentException if the field name is null
@@ -57,16 +64,17 @@ public final class TextField extends Field {
     super(name, reader, TYPE_NOT_STORED);
   }
 
-  /** Creates a new TextField with String value. 
+  /** Creates a new TextField with String value.
    * @param name field name
    * @param value string value
    * @param store Store.YES if the content should also be stored
    * @throws IllegalArgumentException if the field name or value is null.
    */
+  // TODO: 记得改回来
   public TextField(String name, String value, Store store) {
-    super(name, value, store == Store.YES ? TYPE_STORED : TYPE_NOT_STORED);
+    super(name, value, store == Store.YES ? TYPE_STORED : TYPE_TEST);
   }
-  
+
   /** Creates a new un-stored TextField with TokenStream value. 
    * @param name field name
    * @param stream TokenStream value
