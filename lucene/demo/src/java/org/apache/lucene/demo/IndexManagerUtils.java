@@ -44,8 +44,25 @@ public class IndexManagerUtils {
   /**
    *  解析xml标签
    */
-  static Pattern pattern =
+  private static Pattern pattern =
       Pattern.compile("<doc id=\"([^\"]*)\" url=\"[^\"]*\" title=\"([^\"]*)\">");
+  private static long fileNum=0;
+  private static long finishNum=0;
+
+  private static void getFileNum(File targetFileDir) {
+    /** 如果传入的路径不是目录或者目录不存在，则放弃*/
+    if (!targetFileDir.isDirectory() || !targetFileDir.exists()) {
+      return;
+    }
+    for (File file : targetFileDir.listFiles()){
+      if (file.isDirectory()) {
+        /**如果当前是目录，则进行方法回调*/
+        getFileNum(file);
+      } else {
+        fileNum++;
+      }
+    }
+  }
   /**
    * 为指定目录下的文件创建索引,包括其下的所有子孙目录下的文件
    *
@@ -53,7 +70,7 @@ public class IndexManagerUtils {
    * @param indexSaveDir  ：创建好的索引保存目录
    * @throws IOException
    */
-  public static void indexCreate(File targetFileDir, File indexSaveDir) throws IOException {
+  private static void indexCreate(File targetFileDir, File indexSaveDir) throws IOException {
     /** 如果传入的路径不是目录或者目录不存在，则放弃*/
     if (!targetFileDir.isDirectory() || !targetFileDir.exists()) {
       return;
@@ -71,17 +88,7 @@ public class IndexManagerUtils {
         /**如果当前是目录，则进行方法回调*/
         indexCreate(file, indexSaveDir);
       } else {
-        /**如果当前是文件，则进行创建索引*/
-        /** 文件名称：如  abc.txt*/
-        // String fileName = file.getName();
-
-        /**文件内容：org.apache.commons.io.FileUtils 操作文件更加方便
-         * readFileToString：直接读取整个文本文件内容*/
         List<String> fileContext = FileUtils.readLines(file, "UTF-8");
-
-        /**文件大小：sizeOf，单位为字节*/
-        // Long fileSize = FileUtils.sizeOf(file);
-
         Document luceneDocument = null;
         String content = "";
         for (String a : fileContext) {
@@ -108,39 +115,9 @@ public class IndexManagerUtils {
           content = content.concat(a);
           content = content.concat(" ");
         }
-        /**
-         * TextField 继承于 org.apache.lucene.document.Field
-         * TextField(String name, String value, Store store)--文本域
-         *  name：域名，相当于 Mysql 数据库表的字段名
-         *  value：域值，相当于 Mysql 数TextField nameFiled = new TextField("fileName", fileName, Store.YES);据库表的字段值
-         *  store：是否存储，yes 表存储，no 为不存储
-         *
-         * TextField：表示文本域、默认会分词、会创建索引、第三个参数 Store.YES 表示会存储
-         * 同理还有 StoredField、StringField、FeatureField、BinaryDocValuesField 等等
-         * 都来自于超级接口：org.apache.lucene.index.IndexableField
-         */
-        //
-        // TextField contextFiled = new TextField("fileContext", fileContext.get(0), Store.YES);
-        /**如果是 Srore.NO，则不会存储，就意味着后期获取 fileSize 值的时候，值会为null
-         * 虽然 Srore.NO 不会存在域的值，但是 TextField本身会分词、会创建索引
-         * 所以后期仍然可以根据 fileSize 域进行检索：queryParser.parse("fileContext:" + queryWord);
-         * 只是获取 fileSize 存储的值为 null：document.get("fileSize"));
-         * 索引是索引，存储的 fileSize 内容是另一回事
-         * */
-        // TextField sizeFiled = new TextField("fileSize", fileSize.toString(), Store.YES);
-
-        /**将所有的域都存入 Lucene 文档中*/
-        // luceneDocument.add(nameFiled);
-        // luceneDocument.add(contextFiled);
-        // luceneDocument.add(sizeFiled);
-
+        System.out.println("finishFileNum: "+Long.toString(finishNum++));
       }
     }
-
-    /** 创建分词器
-     * StandardAnalyzer：标准分词器，对英文分词效果很好，对中文是单字分词，即一个汉字作为一个词，所以对中文支持不足
-     * 市面上有很多好用的中文分词器，如 IKAnalyzer 就是其中一个
-     */
     Analyzer analyzer = new StandardAnalyzer();
 
     /** 指定之后 创建好的 索引和 Lucene 文档存储的目录
@@ -162,20 +139,22 @@ public class IndexManagerUtils {
     /**将 Lucene 文档加入到 写索引 对象中*/
     for (int i = 0; i < docList.size(); i++) {
       indexWriter.addDocument(docList.get(i));
-//            /**如果目标文档数量较多，可以分批次刷新一下*/
-//            if ((i + 1) % 50 == 0) {
-//                indexWriter.flush();
-//            }
+      if ((i + 1) % 50 == 0) {
+        indexWriter.flush();
+      }
     }
     /**最后再 刷新流，然后提交、关闭流*/
     indexWriter.flush();
     indexWriter.commit();
     indexWriter.close();
+    docList.clear();
   }
 
   public static void main(String[] args) throws IOException {
     File file1 = new File("D:/lucene_index/data/wikipedia");
     File file2 = new File("D:/lucene_index/output_index");
+    getFileNum(file1);
+    System.out.println(fileNum);
     indexCreate(file1, file2);
   }
 }

@@ -30,6 +30,7 @@ import static org.apache.lucene.codecs.lucene50.Lucene50PostingsFormat.VERSION_C
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
 
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.CodecUtil;
@@ -71,7 +72,7 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
   private long posStartFP;
   private long payStartFP;
 
-  final ArrayList<Integer> docIdBuffer;
+  final List<Integer> docIdBuffer;
   final int[] freqBuffer;
   private int docBufferUpto;
 
@@ -177,7 +178,7 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
       }
     }
 
-    docIdBuffer = new ArrayList<>();
+    docIdBuffer = Collections.synchronizedList(new ArrayList<>());
 //    freqBuffer = new int[MAX_DATA_SIZE];
     freqBuffer = null;
 

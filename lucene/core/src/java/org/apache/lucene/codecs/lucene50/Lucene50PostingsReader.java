@@ -20,6 +20,8 @@ package org.apache.lucene.codecs.lucene50;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;;
+import java.util.List;
 
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.CodecUtil;
@@ -238,9 +240,9 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
   }
 
   final class BlockDocsEnum extends PostingsEnum {
-    private final byte[] encoded;
+//    private final byte[] encoded;
     
-    private final ArrayList<Integer> docIdBuffer = new ArrayList<>();
+    private final List<Integer> docIdBuffer = Collections.synchronizedList(new ArrayList<>());
     private final int[] freqBuffer = new int[MAX_DATA_SIZE];
 
     private int docBufferUpto;
@@ -285,7 +287,7 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
       indexHasPos = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0;
       indexHasOffsets = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS) >= 0;
       indexHasPayloads = fieldInfo.hasPayloads();
-      encoded = new byte[MAX_ENCODED_SIZE];    
+//      encoded = new byte[MAX_ENCODED_SIZE];
     }
 
     public boolean canReuse(IndexInput docIn, FieldInfo fieldInfo) {
@@ -401,6 +403,7 @@ public final class Lucene50PostingsReader extends PostingsReaderBase {
         return doc = NO_MORE_DOCS;
       }
       if (docFreq == 1) {
+        docUpto++;
         return singletonDocID;
       }
       if (docBufferUpto == docIdBuffer.size()) {
