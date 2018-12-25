@@ -139,9 +139,9 @@ public class IndexManagerUtils {
     /**将 Lucene 文档加入到 写索引 对象中*/
     for (int i = 0; i < docList.size(); i++) {
       indexWriter.addDocument(docList.get(i));
-      if ((i + 1) % 50 == 0) {
-        indexWriter.flush();
-      }
+//      if ((i + 1) % 50 == 0) {
+//        indexWriter.flush();
+//      }
     }
     /**最后再 刷新流，然后提交、关闭流*/
     indexWriter.flush();

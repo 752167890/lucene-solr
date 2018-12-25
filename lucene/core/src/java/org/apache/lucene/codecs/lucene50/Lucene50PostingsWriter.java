@@ -486,7 +486,9 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
             int base = docIdBuffer.get(item.Partition.Start);
             // 写入base
             docOut.writeVInt(base);
-            skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
+            if (item.Partition.End-item.Partition.Start > 128) {
+              skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
+            }
             for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
               docOut.writeVInt(docIdBuffer.get(i)-base);
             }
@@ -495,7 +497,9 @@ public final class Lucene50PostingsWriter extends PushPostingsWriterBase {
           case BitSet:{
             docOut.writeVInt(1);
             int base = docIdBuffer.get(item.Partition.Start);
-            skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
+            if (item.Partition.End-item.Partition.Start > 128) {
+              skipWriter.bufferSkip(docIdBuffer.get(item.Partition.End-1), item.Partition.End-item.Partition.Start, lastBlockPosFP, lastBlockPayFP, 0, 0);
+            }
             FixedBitSet bitSet = new FixedBitSet(docIdBuffer.get(item.Partition.End-1)-base);
             for(int i=item.Partition.Start+1;i<item.Partition.End;i++) {
               bitSet.set(docIdBuffer.get(i)-base-1);
